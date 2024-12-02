@@ -1,319 +1,146 @@
-
 "use client";
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Crown, Bot, User, RotateCw, Home } from "lucide-react";
+import { Bot, Menu, Volume2, VolumeX } from "lucide-react"; // Importamos el ícono de volumen
+import Link from "next/link";
 
-const BOARD_SIZE = 8;
+const JuegoDeDamas: React.FC = () => {
 
-// Constantes para las piezas
-const EMPTY = 0;
-const BLACK = 1;
-const WHITE = 2;
-const BLACK_KING = 3;
-const WHITE_KING = 4;
+  const [menuOpen, setMenuOpen] = useState(false);
 
-type GameMode = 'single' | 'multi' | null;
-type GameStatus = 'waiting' | 'playing' | 'finished';
-type Winner = 'BLACK' | 'WHITE' | null;
-type Board = number[][];
-type Position = [number, number] | null;
-type Move = {
-  from: [number, number];
-  to: [number, number];
-};
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
-const GameBoard: React.FC = () => {
-  const [board, setBoard] = useState<Board>(() => initializeBoard());
-  const [gameMode, setGameMode] = useState<GameMode>(null);
-  const [selectedPiece, setSelectedPiece] = useState<Position>(null);
-  const [currentPlayer, setCurrentPlayer] = useState<number>(WHITE);
-  const [gameStatus, setGameStatus] = useState<GameStatus>('waiting');
-  const [winner, setWinner] = useState<Winner>(null);
+  // Referencia al objeto Audio para controlar la reproducción
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
-  // Inicializar tablero
-  function initializeBoard(): Board {
-    const board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(EMPTY));
-    
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        if ((row + col) % 2 === 1) {
-          if (row < 3) {
-            board[row][col] = BLACK;
-          } else if (row > 4) {
-            board[row][col] = WHITE;
-          }
-        }
+  // Cargar el estado del sonido desde localStorage al montar el componente
+  useEffect(() => {
+    const savedSoundState = localStorage.getItem("soundEnabled") === "true";
+    setSoundEnabled(savedSoundState);
+
+    if (savedSoundState && audioRef.current) {
+      audioRef.current.play();
+    }
+  }, []);
+
+  // Función para manejar la reproducción o pausa del sonido
+  const toggleSound = () => {
+    const newSoundState = !soundEnabled;
+    setSoundEnabled(newSoundState);
+    localStorage.setItem("soundEnabled", newSoundState.toString()); // Guardar el estado en localStorage
+
+    if (newSoundState) {
+      // Reproducir sonido desde el inicio
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0; // Reinicia el sonido
+        audioRef.current.play();
+      }
+    } else {
+      // Pausar sonido
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     }
-    return board;
-  }
-
-  // Función para reiniciar completamente el juego
-  function resetToInitialState(): void {
-    setBoard(initializeBoard());
-    setGameMode(null);
-    setSelectedPiece(null);
-    setCurrentPlayer(WHITE);
-    setGameStatus('waiting');
-    setWinner(null);
-  }
-
-  // Reiniciar juego actual
-  function resetGame(): void {
-    setBoard(initializeBoard());
-    setCurrentPlayer(WHITE);
-    setSelectedPiece(null);
-    setGameStatus('playing');
-    setWinner(null);
-  }
-
-  // [Resto de las funciones existentes sin cambios...]
-  function checkForKing(row: number, piece: number): number {
-    if (piece === BLACK && row === BOARD_SIZE - 1) return BLACK_KING;
-    if (piece === WHITE && row === 0) return WHITE_KING;
-    return piece;
-  }
-
-  function getValidMoves(row: number, col: number): [number, number][] {
-    const piece = board[row][col];
-    const moves: [number, number][] = [];
-    const jumps: [number, number][] = [];
-    
-    const directions: [number, number][] = [];
-    if (piece === WHITE || piece === WHITE_KING) directions.push([-1, -1], [-1, 1]);
-    if (piece === BLACK || piece === BLACK_KING) directions.push([1, -1], [1, 1]);
-    if (piece === WHITE_KING || piece === BLACK_KING) {
-      directions.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
-    }
-
-    directions.forEach(([dr, dc]) => {
-      const newRow = row + dr;
-      const newCol = col + dc;
-      const jumpRow = row + dr * 2;
-      const jumpCol = col + dc * 2;
-
-      if (isValidPosition(newRow, newCol)) {
-        if (board[newRow][newCol] === EMPTY) {
-          moves.push([newRow, newCol]);
-        } else if (
-          isValidPosition(jumpRow, jumpCol) &&
-          board[jumpRow][jumpCol] === EMPTY &&
-          isOpponentPiece(board[newRow][newCol], piece)
-        ) {
-          jumps.push([jumpRow, jumpCol]);
-        }
-      }
-    });
-
-    return jumps.length > 0 ? jumps : moves;
-  }
-
-  function isValidPosition(row: number, col: number): boolean {
-    return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
-  }
-
-  function isOpponentPiece(piece1: number, piece2: number): boolean {
-    const isBlack = (p: number) => p === BLACK || p === BLACK_KING;
-    const isWhite = (p: number) => p === WHITE || p === WHITE_KING;
-    return (isBlack(piece1) && isWhite(piece2)) || (isWhite(piece1) && isBlack(piece2));
-  }
-
-  function movePiece(fromRow: number, fromCol: number, toRow: number, toCol: number): void {
-    const newBoard = board.map(row => [...row]);
-    const piece = checkForKing(toRow, newBoard[fromRow][fromCol]);
-    
-    newBoard[toRow][toCol] = piece;
-    newBoard[fromRow][fromCol] = EMPTY;
-
-    if (Math.abs(fromRow - toRow) === 2) {
-      const midRow = (fromRow + toRow) / 2;
-      const midCol = (fromCol + toCol) / 2;
-      newBoard[midRow][midCol] = EMPTY;
-    }
-
-    setBoard(newBoard);
-    setCurrentPlayer(currentPlayer === WHITE ? BLACK : WHITE);
-    checkWinCondition(newBoard);
-  }
+  };
 
   useEffect(() => {
-    if (gameMode === 'single' && currentPlayer === BLACK && gameStatus === 'playing') {
-      const aiMove = calculateAIMove();
-      if (aiMove) {
-        const { from, to } = aiMove;
-        setTimeout(() => {
-          movePiece(from[0], from[1], to[0], to[1]);
-        }, 500);
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.loop = true; // Hacer que el sonido se repita
+      audioRef.current.play();
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
-    }
-  }, [currentPlayer, gameMode, gameStatus]);
-
-  function calculateAIMove(): Move | null {
-    const possibleMoves: Move[] = [];
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        if (board[row][col] === BLACK || board[row][col] === BLACK_KING) {
-          const moves = getValidMoves(row, col);
-          moves.forEach(move => {
-            possibleMoves.push({
-              from: [row, col],
-              to: move
-            });
-          });
-        }
-      }
-    }
-    
-    if (possibleMoves.length === 0) return null;
-    return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-  }
-
-  function checkWinCondition(currentBoard: Board): void {
-    let blackPieces = 0;
-    let whitePieces = 0;
-
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        const piece = currentBoard[row][col];
-        if (piece === BLACK || piece === BLACK_KING) blackPieces++;
-        if (piece === WHITE || piece === WHITE_KING) whitePieces++;
-      }
-    }
-
-    if (blackPieces === 0) {
-      setGameStatus('finished');
-      setWinner('WHITE');
-    } else if (whitePieces === 0) {
-      setGameStatus('finished');
-      setWinner('BLACK');
-    }
-  }
-
-  function handleSquareClick(row: number, col: number): void {
-    if (gameStatus !== 'playing') return;
-    if (gameMode === 'single' && currentPlayer === BLACK) return;
-
-    const piece = board[row][col];
-    
-    if (!selectedPiece && piece !== EMPTY && 
-        ((currentPlayer === WHITE && (piece === WHITE || piece === WHITE_KING)) ||
-         (currentPlayer === BLACK && (piece === BLACK || piece === BLACK_KING)))) {
-      setSelectedPiece([row, col]);
-      return;
-    }
-
-    if (selectedPiece) {
-      const validMoves = getValidMoves(selectedPiece[0], selectedPiece[1]);
-      if (validMoves.some(move => move[0] === row && move[1] === col)) {
-        movePiece(selectedPiece[0], selectedPiece[1], row, col);
-      }
-      setSelectedPiece(null);
-    }
-  }
-
-  function renderSquare(row: number, col: number): JSX.Element {
-    const piece = board[row][col];
-    const isSelected = selectedPiece && selectedPiece[0] === row && selectedPiece[1] === col;
-    const validMoves = selectedPiece ? getValidMoves(selectedPiece[0], selectedPiece[1]) : [];
-    const isValidMove = validMoves.some(move => move[0] === row && move[1] === col);
-
-    return (
-      <div
-        key={`${row}-${col}`}
-        className={`w-16 h-16 flex items-center justify-center
-          ${(row + col) % 2 === 0 ? 'bg-amber-200' : 'bg-amber-800'}
-          ${isSelected ? 'ring-4 ring-blue-500' : ''}
-          ${isValidMove ? 'ring-4 ring-green-500' : ''}
-        `}
-        onClick={() => handleSquareClick(row, col)}
-      >
-        {piece !== EMPTY && (
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center
-            ${piece === BLACK || piece === BLACK_KING ? 'bg-gray-800' : 'bg-gray-200'}
-            ${isSelected ? 'border-4 border-blue-500' : ''}
-          `}>
-            {(piece === BLACK_KING || piece === WHITE_KING) && (
-              <Crown className={`w-8 h-8 ${piece === BLACK_KING ? 'text-gray-200' : 'text-gray-800'}`} />
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
+    };
+  }, [soundEnabled]); // Este efecto se ejecutará siempre que el estado `soundEnabled` cambie
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center text-3xl font-bold">
-            Juego de Damas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {gameStatus === 'waiting' ? (
-            <div className="flex flex-col items-center gap-4">
-              <Button
-                className="w-64"
-                onClick={() => {
-                  setGameMode('single');
-                  setGameStatus('playing');
-                }}
-              >
-                <Bot className="mr-2" /> 1 Jugador vs IA
+    <div className="min-h-screen flex relative flex-col items-center pt-10">
+      {/* Ícono del menú en la esquina superior izquierda */}
+      <button
+        className="fixed top-4 left-4 p-3 bg-blue-500 text-white rounded-full z-10"
+        onClick={() => setMenuOpen(!menuOpen)}
+      >
+        <Menu size={24} />
+      </button>
+
+      {/* Menú lateral izquierdo */}
+      <div
+        className={`bg-gray-800 text-white p-4 fixed top-0 left-0 w-full sm:w-[250px] h-full transition-transform duration-300 ${
+          menuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{ width: "250px" }}
+      >
+        <h3 className="text-2xl font-bold text-center mb-4">Menú</h3>
+        <ul className="flex flex-col items-center">
+          <li>
+            <Link href="/rules" passHref>
+              <Button className="w-full mb-2 text-center">
+                <Bot className="mr-2" /> Reglas
               </Button>
-              <Button
-                className="w-64"
-                onClick={() => {
-                  setGameMode('multi');
-                  setGameStatus('playing');
-                }}
-              >
-                <User className="mr-2" /> 2 Jugadores
+            </Link>
+          </li>
+          <li>
+            <Link href="/historia" passHref>
+              <Button className="w-full mb-2 text-center">
+                <Bot className="mr-2" /> Historia
               </Button>
-            </div>
-          ) : (
+            </Link>
+          </li>
+          <li>
+            <Button
+              onClick={toggleSound} // Alterna el estado del sonido
+              className="w-full mb-2 text-center"
+            >
+              {soundEnabled ? (
+                <Volume2 className="mr-2" /> // Icono de sonido activado
+              ) : (
+                <VolumeX className="mr-2" /> // Icono de sonido desactivado
+              )}
+              Modo espera (sonido)
+            </Button>
+          </li>
+        </ul>
+      </div>
+
+      <div className="flex justify-center items-center w-full max-w-4xl mt-16">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-center text-3xl font-bold">
+              Juego de Damas Inglesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-4 mb-4">
-                <Button
-                  variant="outline"
-                  onClick={resetGame}
-                >
-                  <RotateCw className="mr-2" /> Reiniciar
+              <Link href="/contraia" passHref>
+                <Button className="w-64 flex items-center border border-gray-300 shadow-lg hover:shadow-xl">
+                  <Bot className="mr-2" /> 1 Jugador vs IA
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={resetToInitialState}
-                >
-                  <Home className="mr-2" /> Menú Principal
+              </Link>
+              <Link href="/jugadores2" passHref>
+                <Button className="w-64 flex items-center border border-gray-300 shadow-lg hover:shadow-xl">
+                  <Bot className="mr-2" /> 2 jugadores
                 </Button>
-              </div>
-
-              {gameStatus === 'playing' && (
-                <div className="text-lg font-semibold mb-4">
-                  Turno: {currentPlayer === WHITE ? 'Blancas' : 'Negras'}
-                </div>
-              )}
-
-              {gameStatus === 'finished' && (
-                <div className="text-xl font-bold mb-4">
-                  ¡Ganador: {winner === 'WHITE' ? 'Blancas' : 'Negras'}!
-                </div>
-              )}
-
-              <div className="grid grid-cols-8 gap-0 border-4 border-amber-900">
-                {Array(BOARD_SIZE).fill(null).map((_, row) => (
-                  Array(BOARD_SIZE).fill(null).map((_, col) => renderSquare(row, col))
-                ))}
-              </div>
+              </Link>
+              <Link href="/rules" passHref>
+                <Button className="w-64 flex items-center border border-gray-300 shadow-lg hover:shadow-xl">
+                  <Bot className="mr-2" /> Reglas del juego
+                </Button>
+              </Link>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Audio oculto para controlar la música */}
+      <audio ref={audioRef} loop>
+        <source src="/blue.mp3" type="audio/mp3" />
+      </audio>
     </div>
   );
 };
 
-export default GameBoard;
+export default JuegoDeDamas;
