@@ -235,8 +235,7 @@ if (pieza === BLANCA || pieza === NEGRA) {
      direccionesReina.forEach(([df, dc]) => {
          // Variables de control de captura
          let piezaCapturada = false;
-         let ultimaFilaCaptura = -1;
-         let ultimaColumnaCaptura = -1;
+
  
          for (let paso = 1; paso < TAMAÑO_TABLERO; paso++) {
              const nuevaFila = fila + df * paso;
