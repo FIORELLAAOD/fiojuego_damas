@@ -1,6 +1,4 @@
 import { Card, CardHeader, CardContent } from "@/components/ui/card"; // Ajusta según tu estructura de shadcn/ui
-import { ArrowRight, Crown, AlertTriangle, Check, Info } from "lucide-react";
-
 const HistoryPage = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center py-18 px-6 bg-gradient-to-r from-turquoise via-blue-900 to-turquoise-800 font-roboto">

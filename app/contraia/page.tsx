@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Crown, Bot, User, RotateCw, Home } from "lucide-react";
+import { Crown, Bot, RotateCw, Home } from "lucide-react";
 import { Volume2, VolumeX } from "lucide-react";
 
 const BOARD_SIZE = 8;
@@ -73,20 +73,6 @@ const GameBoard: React.FC = () => {
       }
     }
   };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
